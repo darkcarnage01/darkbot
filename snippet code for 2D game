@@ -1,0 +1,36 @@
+#!/usr/bin/env python
+
+import pygame,sys 
+from pygame.locals	import * 
+
+pygame.init()
+
+screen = pygame.display.set_mode((370, 542), 0, 32)
+
+backgroundfile = "background.png"
+mousefile = "mouse.png"
+
+background = pygame.image.load(backgroundfile).convert()
+mouse = pygame.image.load(mousefile).convert_alpha()
+
+while True:
+
+	for event in pygame.event.get():
+		if event.type == QUIT:
+			pygame.quit()
+			sys.exit()
+		
+		#Now you have everything initialized, time for the main part 	
+			
+		screen.blit(background, (0,0))
+		
+		x,y = pygame.mouse.get_pos()
+		
+		# x -= mousewidth  x = x - mousewidth 
+		x -= mouse.get_width()/2
+		y -= mouse.get_height()/2
+		
+		screen.blit(mouse, (x,y))
+		
+		# Finish off by updating our display 
+		pygame.display.update() 
