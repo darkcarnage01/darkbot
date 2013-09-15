@@ -1,0 +1,290 @@
+#!/usr/bin/env python
+
+'''Space Invaders game written by Rob McKinley IV'''
+
+'''Import pygame for graphics, import sys for exit function, random for random numbers
+os is used for environment variables to set the position to centre'''
+import pygame, sys, random, os
+
+'''import constants used by pygame such as event type = QUIT'''
+from pygame.locals import *
+
+'''Declare classes and functions'''
+
+def initPyGame():
+    '''Initialize pygame components'''
+    pygame.init()
+    
+    '''
+    Centres the pygame window. Note that the environment variable is called 
+    SDL_VIDEO_WINDOW_POS because pygame uses SDL (standard direct media layer)
+    for it's graphics, and other functions
+    '''
+    os.environ['SDL_VIDEO_WINDOW_POS'] = 'center'
+
+    '''Set the window title'''
+    pygame.display.set_caption("Space Invaders!")
+    
+    '''hide the mouse cursor'''
+    pygame.mouse.set_visible(False)
+
+class coachClass(pygame.sprite.Group):
+    def __init__(self, sprites=None):
+        pygame.sprite.Group.__init__(self, sprites)
+        self.change = False
+    
+    def update(self):
+        if self.change:
+            self.change = False
+            piClass.speedx = -piClass.speedx
+        pygame.sprite.Group.update(self)
+        
+class backgroundClass():
+    '''Class containing properties and methods for background'''
+    def __init__(self):
+        '''Variable to store background image is called'''
+        backgroundfile = "background.png"
+        
+        '''Create a pygame surface called image with background image'''
+        baseimage = pygame.image.load(backgroundfile).convert()
+        self.image = pygame.transform.scale(baseimage, (int(baseimage.get_width() * 1.5), int(baseimage.get_height() * 1.5)))
+        
+    def draw(self):
+        '''Code to draw the background to screen surface'''
+        screen.blit(self.image, (0,0))
+
+class crosshairsClass(pygame.sprite.Sprite):
+    '''This class inherits functions from pygame.sprite.Sprite
+       containing methods and properties for crosshairs'''
+       
+    def __init__(self):
+       '''Initialize a sprite, passing this instance as a parameter'''
+       pygame.sprite.Sprite.__init__(self)
+       
+       '''Variable to store what image is called'''
+       crosshairsfile = "crosshairsmouse.png"
+       
+       '''get image from crosshairs file and rectangle from image'''
+       self.image = pygame.image.load(crosshairsfile).convert_alpha()
+       self.rect = self.image.get_rect()
+       
+    def update(self):
+        '''move the crosshairs to where the mouse is'''
+        
+        '''get the mouse position'''
+        position = pygame.mouse.get_pos()
+        screenrect = screen.get_rect()
+        if not pygame.mouse.get_focused() or position[1] < screenrect.bottom - 50:
+            position = (-200, 0)
+            pygame.mouse.set_visible(True)
+        else:
+            '''hide the mouse cursor'''
+            pygame.mouse.set_visible(False)
+
+        '''assign it to the centre of rectangle'''
+        self.rect.center = position
+
+class bulletClass(pygame.sprite.Sprite):
+    attacker = None
+    defender = None
+    def __init__(self, position, speedy, targets):
+        pygame.sprite.Sprite.__init__(self)
+        
+        if bulletClass.attacker is None:
+            bulletClass.attacker = pygame.Surface((6, 18))
+            bulletClass.attacker.fill(pygame.Color('red'))
+            bulletClass.defender = pygame.Surface((6, 18))
+            bulletClass.defender.fill(pygame.Color('yellow'))
+
+        if speedy < 0:      # Defender bullet
+            self.image = bulletClass.defender.convert()
+        else:               # Attacker bullet
+            self.image = bulletClass.attacker.convert()
+
+        self.rect = self.image.get_rect()
+        self.rect.centerx = position[0]
+        self.rect.centery = position[1]
+        self.speedy = speedy
+        self.targets = targets
+
+    def update(self):
+        global gameover, hits
+        self.rect.top += self.speedy
+
+        if pygame.sprite.spritecollide(self, self.targets, True):
+            if self.speedy < 0:
+                hits += 1
+            bullets.remove(self)
+            if len(cross) == 0:
+                gameover = True
+
+        '''Get the rectangle for the screen'''
+        screenrect = screen.get_rect()
+        
+        if self.rect.bottom <= 0 or self.rect.top >= screenrect.bottom:
+            bullets.remove(self)
+
+class piClass(pygame.sprite.Sprite):
+    '''This class inherits functions from pygame.sprite.Sprite
+       containing methods and properties for pi'''
+
+    image = None
+    '''Variable to store image is called'''
+    image_file = "invader1.png"
+    speedx = 10
+
+    def __init__(self, startx=10, starty=0, speedx=10, speedy=25, random_scale=False):
+        '''Initialize a sprite, passing this instance as a parameter'''
+        pygame.sprite.Sprite.__init__(self)
+
+        if piClass.image is None:
+            '''get image from pi file and rectangle from image'''
+            piClass.image = pygame.image.load(self.image_file)
+            piClass.speedx = speedx
+        
+        if random_scale:
+            scale = random.randint(4, 12)
+            w = int((piClass.image.get_width() * scale) / 10.0)
+            h = int((piClass.image.get_height() * scale) / 10.0)
+        else:
+            w, h = piClass.image.get_size()
+        self.image = pygame.transform.scale(piClass.image, (w, h)).convert_alpha()
+
+        '''set right of rectangle to start x and y co ordinates'''
+        self.rect = self.image.get_rect()
+        self.rect.left = startx
+        self.rect.centery = starty
+
+        '''How many pixels to move the pi image across the screen'''
+        self.speedx = speedx
+        self.speedy = speedy
+
+    def update(self):
+        global gameover, coach
+        
+        nz = 10
+        '''Add pispeed to current rectangle x value so it moves horizontaly across the screen'''
+        if self.speedx != piClass.speedx:
+            self.speedx = piClass.speedx
+            self.rect.top += self.speedy
+        self.rect.right += self.speedx
+        
+        '''Get the rectangle for the screen'''
+        screenrect = screen.get_rect()
+        
+        if self.rect.bottom >= screenrect.bottom - 50:
+            gameover = True
+
+        '''If the left edge of pi is >= edge of screen then...'''
+        if self.speedx == piClass.speedx and (self.rect.right >= screenrect.right - nz or self.rect.left <= nz):
+            '''set rectangle right x value back to zero'''
+            self.groups()[0].change = True
+
+        if random.randint(1, 500) == 1:
+            b = bulletClass((self.rect.centerx, self.rect.bottom), 25, cross)
+            bullets.add(b)
+
+def eventHandling():
+    global shots
+    '''The code below handles event'''
+    for event in pygame.event.get():
+        
+        '''Close the program when the X button is pressed'''
+        if event.type == QUIT:
+            pygame.quit()
+            exit()
+            
+        if event.type == MOUSEBUTTONDOWN:
+            '''The mouse has been clicked so see if the sprites rectangles collide
+            The pygame.sprite.collide_rect returns either True or False.
+            '''
+            
+            screenrect = screen.get_rect()
+            if event.pos[1] >= screenrect.bottom - 50:
+                if event.button == 1:       # Left button
+                    if len(bullets) < 4:
+                        bullets.add(bulletClass(event.pos, -12, invaders))
+                        shots += 1
+                elif event.button == 3:     # Right button
+                    if len(bullets) <= 1:
+                        bullets.add([bulletClass((i, event.pos[1]), -12, invaders) for i in range(event.pos[0] - 30, event.pos[0] + 40, 20)])
+                        shots += 4
+                    elif len(bullets) < 4:
+                        bullets.add(bulletClass(event.pos, -12, invaders))
+                        shots += 1
+                        
+			hit = pygame.sprite.collide_rect(crosshairs, pi)
+
+			if hit == True:
+				'''The crosshairs was over the pi sprite when mouse was clicked'''
+				print "hit"
+
+
+'''Initialize pygame and set some environment variables'''
+initPyGame()
+
+'''Initialize a display with width 800 and height 600 with 32 bit colour'''
+screen = pygame.display.set_mode((800, 600), 0, 32)
+
+'''Used to manage how fast the screen updates'''
+clock = pygame.time.Clock()
+
+'''variable for how many loops a second'''
+framesPerSecond = 30
+
+'''Declare class instances to be used in game loop'''
+background = backgroundClass()
+crosshairs = crosshairsClass()
+
+pis = []
+for j in range(5):
+    pis.extend([piClass(10 + j * 80, 50 + i * 80) for i in range(5)])
+
+'''create a sprite Group which will contain all sprites'''
+
+invaders = coachClass(pis)
+cross = pygame.sprite.Group(crosshairs)
+bullets = pygame.sprite.Group()
+
+gameover = False
+hits = 0
+shots = 0
+coach = False
+
+while True:
+    '''The game loop'''
+    
+    '''Limit screen updates to 20 frames per second so we dont use 100% cpu time'''
+    clock.tick(framesPerSecond)
+    
+    '''Runs the code in the event handling function'''
+    eventHandling()
+
+    if not gameover:
+        '''Draws background to display surface'''
+        background.draw()
+        
+        '''run the update code in for sprites and then draw them to the screen'''
+        invaders.update()        # This is really a coach, not a generic pygame Group
+        invaders.draw(screen)
+        cross.update()
+        cross.draw(screen)
+        bullets.update()
+        bullets.draw(screen)
+
+        gameover = gameover or len(invaders) == 0
+
+        '''update the full display surface to the screen'''
+        pygame.display.update()
+    else:
+        # Adjust accuracy by discounting unresolved shots
+        for bullet in bullets:
+            if bullet.speedy < 0:
+                shots -= 1
+
+        print 'Game Over!'
+        print hits, 'hits!'
+        if shots > 0:
+            print float(hits) / shots * 100, '% Accuracy!'
+        pygame.mouse.set_visible(True)
+        break
